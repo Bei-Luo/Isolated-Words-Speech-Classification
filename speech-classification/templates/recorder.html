@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>
+        Audio Collector: Recorder
+    </title>
+
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <!--<script type="text/javascript" src="../static/js/jquery-3.3.1.min.js"></script>-->
+    <!--<script type="text/javascript" src="../static/js/init.js"></script>-->
+    <!--<script type="text/javascript" src="../static/js/materialize.min.js"></script>-->
+    <!--<script type="text/javascript" src="../static/js/recorder-core.js"></script>-->
+    <!--<script type="text/javascript" src="../static/js/waveview.js"></script>-->
+    <!--<script type="text/javascript" src="../static/js/wav.js"></script>-->
+    <script type="text/javascript" src="{{ url_for('static', filename='js/d3.min.js') }}"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+
+    <script type="text/javascript" src="{{ url_for('static', filename='js/recorder-core.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/waveview.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/wav.js') }}"></script>
+
+    <!--<link type="text/css" href="../static/css/materialize.min.css" rel="stylesheet" media="screen,projection"/>-->
+    <!--<link type="text/css" href="../static/css/style.css" rel="stylesheet" media="screen,projection"/>-->
+    <!--<link type="text/css" href="../static/css/linechart.css" rel="stylesheet"/>-->
+</head>
+<body>
+<nav class="blue lighten-2" role="navigation">
+    <div class="nav-wrapper container">
+        <!-- logo -->
+        <a href="../index.html" id="logo-container" class="brand-logo">普通话的孤立词识别</a>
+
+        <!-- links -->
+        <ul class="right hide-on-med-and-down">
+            <li></li>
+        </ul>
+
+        <!-- sidenav links -->
+        <ul id="nav-mobile" class="sidenav">
+            <li><a href="recorder.html"><i class="material-icons">keyboard_voice</i>Recorder</a></li>
+        </ul>
+
+        <!-- sidenav menu button -->
+        <a href="" data-target="nav-mobile" class="sidenav-trigger right">
+            <i class="material-icons">menu</i>
+        </a>
+    </div>
+</nav>
+<div class="row container" id="wave-canvas"></div>
+
+<div class="row container">
+    <div class="col s8">
+        <div style="height:200px;width:830px;border:1px solid #ccc;box-sizing: border-box;display:inline-block"
+             class="recwave"></div>
+    </div>
+    <div class="col s1">
+        <div style="height:200px;width:80px;background:#0B1;position:relative;">
+            <div class="recpowerx" style="width:80px;height:200px;background:#999;position:absolute;"></div>
+            <div class="recpowerl" style="padding-left:30px; line-height:40px; position: relative;"></div>
+        </div>
+    </div>
+    <div class="col s3">
+        <!--<div class="col s6 input-field">-->
+        <!--<input value="" id="student" type="text">-->
+        <!--<label for="student">Student ID</label>-->
+        <!--</div>-->
+        <!--<div class="col s6 input-field">-->
+        <!--<input value="1" placeholder="int" id="number" min="1" max="401" step="1" type="number" class="validate">-->
+        <!--<label for="number">No.</label>-->
+        <!--</div>-->
+        <h6 class="s12 red-text">可识别：数字, 语音, 语言, 识别, 中国, 总工, 北京, 背景, 上海, 商行</h6>
+        <h4 id="word" class="s12 red-text">None</h4>
+        <div class="col s4">
+            <a id="start-button" onclick="start()" class="btn-floating btn-large waves-effect waves-light red"><i
+                    class="material-icons">keyboard_voice</i></a>
+        </div>
+        <div class="col s4">
+            <a id="play-button" onclick="play()" class="btn-floating btn-large waves-effect waves-light red"><i
+                    class="material-icons">hearing</i></a>
+        </div>
+        <div class="col s4">
+            <a id="upload-button" onclick="upload()" class="btn-floating btn-large waves-effect waves-light red"><i
+                    class="material-icons">check</i></a>
+        </div>
+    </div>
+</div>
+
+<!--<button type="button" onclick="upload()">Check</button>-->
+<!--<button type="button" onclick="alert('Hello world!')">Click Me!</button>-->
+<audio class="recPlay" style="width:100%"></audio>
+
+<style>
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+    .x.axis path {
+        display: none;
+    }
+
+    .line {
+        fill: none;
+        stroke-width: 1.5px;
+    }
+</style>
+
+<script>
+    // compatible browser?
+    if (Recorder.Support()) {
+        M.toast({html: "兼容的浏览器", classes: 'rounded'});
+    } else {
+        alert("请使用其他浏览器！ 该浏览器不兼容！");
+    }
+
+    let words = ['数字', '语音', '语言', '识别', '中国',
+        '总工', '北京', '背景', '上海', '商行'];
+
+    var lineNumber = 1;
+
+    let downloaded = 0;
+
+    function start() {
+        recstart();
+        downloaded = 0;
+    }
+
+    function play() {
+        recplay(1);
+        document.getElementById("upload-button").className = "btn-floating btn-large waves-effect waves-light red";
+    }
+
+    function upload() {
+        recdown(1);
+        if (!downloaded) {
+            downloaded = 1;
+        }
+    }
+
+    var rec;
+    recopen();
+
+    function recopen() {
+        var type = "wav";
+        var bit = 16;
+        var sample = 16000;
+        var wave;
+        var waveSet = true;
+        rec = Recorder({
+            type: type
+            , bitRate: bit
+            , sampleRate: sample
+            , onProcess: function (buffers, level, time, sampleRate) {
+                $(".recpowerx").css("height", 200 - 2 * level);
+                // $(".recpowert").html(time);
+                $(".recpowerl").html(level);
+
+                waveSet && wave.input(buffers[buffers.length - 1], level, sampleRate);
+            }
+        });
+        rec.open(function () {
+            wave = Recorder.WaveView({elem: ".recwave"});
+            // document.getElementById("start-button").className = "btn-floating btn-large waves-effect waves-light red";
+        }, function (e, isUserNotAllow) {
+            alert("Recording is not allowed! Please grant access!");
+        });
+    }
+
+    function recstart() {
+        if (rec) {
+            rec.start();
+        }
+        setTimeout(function () {
+            recstop();
+            let buffer = [];
+            for (let i = 0; i < rec.buffer.length; i++)
+                for (let j = 0; j < rec.buffer[i].length; j++)
+                    buffer.push(rec.buffer[i][j]);
+            render(transformData(buffer));
+        }, 2100)
+    }
+
+    var recblob = {};
+
+    function recstop(batCall) {
+        if (rec) {
+            if (!batCall) {
+            }
+            rec.stop(function (blob, time) {
+                var id = 1;
+                recblob[id] = {blob: blob, set: $.extend({}, rec.set), time: time};
+                batCall && batCall();
+            }, function (s) {
+                batCall && batCall();
+            });
+        }
+    }
+
+    function print_number(num) {
+        num = parseInt(num);
+        return (num < 10) ? ('0' + num.toString()) : num.toString();
+    }
+
+    function recplay(key) {
+        var o = recblob[key];
+        if (o) {
+            var audio = $(".recPlay")[0];
+            audio.controls = true;
+            if (!(audio.ended || audio.paused)) {
+                audio.pause();
+            }
+            o.play = (o.play || 0) + 1;
+
+            var end = function (blob) {
+                audio.src = URL.createObjectURL(blob);
+                audio.play();
+            };
+            var wav = Recorder[o.set.type + "2wav"];
+            if (wav) {
+                //logmsg("正在转码成wav...");
+                wav(o.blob, function (blob) {
+                    end(blob);
+                    //logmsg("已转码成wav播放");
+                }, function (msg) {
+                    //logmsg("转码成wav失败："+msg);
+                });
+            } else {
+                end(o.blob);
+            }
+        }
+    }
+
+    function recdown(key) {
+        var o = recblob[key];
+        let name = filename();
+        var reader = new FileReader();
+        reader.onloadend = function () {
+            var id = 1;
+            console.log(reader.result);
+            $.ajax({
+                url: "/infer",
+                data: {'data': reader.result, 'name': name},
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                    d3.select("#word").text(data['word']);
+                }
+            });
+        };
+        reader.readAsDataURL(o.blob);
+    }
+
+    function filename() {
+        var today = new Date();
+        var date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+        var time = today.getHours() + "-" + today.getMinutes() + "-" + today.getSeconds();
+        var name = date + '-' + time + '.wav';
+        return name;
+    }
+
+    function recdown64(key) {
+        var o = recblob[key];
+
+        var reader = new FileReader();
+
+        reader.onloadend = function () {
+            var id = 1;
+            $.ajax({
+                url: "/infer",
+                data: {'data': reader.result},
+                type: "GET",
+                dataType: "json",
+                success: function (data) {
+                }
+            });
+        };
+        reader.readAsDataURL(o.blob);
+    }
+
+    // wave
+    const width = 1250;
+    const height = 200;
+
+    const margin = {top: 20, right: 20, bottom: 20, left: 50};
+
+    const xScale = d3.scaleLinear()
+        .range([0, width - margin.left - margin.right]);
+
+    const yScale = d3.scaleLinear()
+        .range([height - margin.top - margin.bottom, 0]);
+
+    const line = d3.line()
+        .x(d => xScale(d.x))
+        .y(d => yScale(d.y))
+        .curve(d3.curveMonotoneX);
+
+    const svg = d3.select("#wave-canvas").append("svg")
+        .attr("height", height).attr("width", width)
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.right})`);
+
+    // initial page render
+    var random_buffer = d3.range(lineNumber).map(() =>
+        d3.range(1000).map((item, index) =>
+            ({x: index, y: (Math.random() - 0.5) * 40000})
+        )
+    );
+    render(random_buffer);
+
+    function render(data) {
+        // obtain absolute min and max
+        const yMin = data.reduce((pv, cv) => {
+            const currentMin = cv.reduce((pv, cv) => Math.min(pv, cv.y), 100);
+            return Math.min(pv, currentMin);
+        }, 100);
+        const yMax = data.reduce((pv, cv) => {
+            const currentMax = cv.reduce((pv, cv) => Math.max(pv, cv.y), 0);
+            return Math.max(pv, currentMax);
+        }, 0);
+
+        const xMin = data.reduce((pv, cv) => {
+            const currentMin = cv.reduce((pv, cv) => Math.min(pv, cv.x), 100);
+            return Math.min(pv, currentMin);
+        }, 100);
+        const xMax = data.reduce((pv, cv) => {
+            const currentMax = cv.reduce((pv, cv) => Math.max(pv, cv.x), 0);
+            return Math.max(pv, currentMax);
+        }, 0);
+
+        // set domain for axis
+        xScale.domain([xMin, xMax]);
+        let yRange = Math.max(-yMin, yMax, 20000);
+        yScale.domain([-yRange, yRange]);
+
+        // create axis scale
+        const yAxis = d3.axisLeft().scale(yScale);
+        const xAxis = d3.axisBottom().scale(xScale);
+
+        // if no axis exists, create one, otherwise update it
+        if (svg.selectAll(".y.axis").empty()) {
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis);
+        } else {
+            svg.selectAll(".y.axis")
+                // .transition().duration(1500)
+                .call(yAxis);
+        }
+        if (svg.selectAll(".x.axis").empty()) {
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", `translate(${0}, ${height - margin.top - margin.bottom})`)
+                .call(xAxis);
+        } else {
+            svg.selectAll(".x.axis")
+                // .transition().duration(1500)
+                .call(xAxis);
+        }
+
+        // generate line paths
+        const lines = svg.selectAll(".line")
+            .data(data)
+            .attr("class", "line");
+
+        // exit
+        lines.exit()
+            .remove();
+
+        // enter any new data
+        lines.enter()
+            .append("path")
+            .attr("class", "line")
+            .attr("d", line)
+            .style("stroke", "#386cb0")
+            // Update new data
+            .merge(lines)
+            // .transition().duration(1500)
+            .attr("d", line)
+            .style("stroke", "#386cb0");
+    }
+
+    function transformData(buffer) {
+        return d3.range(lineNumber).map(() =>
+            d3.range(buffer.length).map((item, index) =>
+                ({x: index, y: buffer[item]})
+            )
+        );
+    }
+</script>
+
+</body>
+</html>
